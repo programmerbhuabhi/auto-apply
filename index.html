@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Mail Studio — Job Application Dispatcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14100e;
+    --surface:#1c1613;
+    --surface-raised:#241c18;
+    --rail:#0f0b09;
+    --safelight:#c1442e;
+    --safelight-dim:#7a2c1d;
+    --amber:#e8a33d;
+    --ok:#7fae6f;
+    --ok-dim:#3c4d34;
+    --err:#d1563f;
+    --text:#f2e9dc;
+    --muted:#948779;
+    --muted-2:#5f574c;
+    --hair: rgba(242,233,220,0.12);
+    --radius: 4px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+
+  body{
+    background:
+      radial-gradient(ellipse 1000px 700px at 50% -10%, rgba(193,68,46,0.12), transparent 65%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:48px 20px;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  /* film grain */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    pointer-events:none;
+    opacity:0.05;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    z-index:1000;
+  }
+
+  .wrap{
+    width:100%;
+    max-width:680px;
+    position:relative;
+  }
+
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--safelight);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--safelight);
+    box-shadow:0 0 10px 2px rgba(193,68,46,0.8);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:0.35;}
+  }
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:500;
+    font-size:clamp(32px, 5vw, 44px);
+    line-height:1.05;
+    text-align:center;
+    margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  h1 em{
+    font-style:italic;
+    color:var(--safelight);
+  }
+
+  .sub{
+    text-align:center;
+    color:var(--muted);
+    font-size:14.5px;
+    line-height:1.6;
+    max-width:480px;
+    margin:0 auto 32px;
+  }
+
+  /* ===== filmstrip framed card ===== */
+  .filmstrip{
+    display:flex;
+    align-items:stretch;
+    background:var(--rail);
+    border-radius:8px;
+    padding:0 14px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7), 0 0 0 1px rgba(242,233,220,0.06);
+  }
+  .sprockets{
+    width:14px;
+    flex-shrink:0;
+    background-image: radial-gradient(circle, var(--bg) 3.5px, transparent 4px);
+    background-size: 14px 24px;
+    background-position: center;
+  }
+
+  .card{
+    flex:1;
+    background:var(--surface);
+    padding:36px 32px;
+    position:relative;
+  }
+
+  /* ===== aperture signature element ===== */
+  .aperture-stage{
+    display:flex;
+    justify-content:center;
+    margin-bottom:20px;
+  }
+  .aperture{
+    width:88px;
+    height:88px;
+    position:relative;
+  }
+  .aperture svg{
+    width:100%;
+    height:100%;
+    overflow:visible;
+  }
+  .blade-group{
+    transform-origin:50px 50px;
+    transition: transform 0.6s cubic-bezier(.5,0,.15,1);
+  }
+  .blade{
+    fill:var(--muted-2);
+    transition: fill 0.5s ease;
+  }
+  .aperture-ring{
+    fill:none;
+    stroke:var(--hair);
+    stroke-width:1;
+  }
+  .aperture-core{
+    fill:var(--rail);
+    transition: fill 0.5s ease;
+  }
+
+  /* states */
+  .aperture[data-state="idle"] .blade-group{ transform: rotate(0deg) scale(1); }
+  .aperture[data-state="ready"] .blade-group{ transform: rotate(28deg) scale(0.78); }
+  .aperture[data-state="busy"] .blade-group{ transform: rotate(28deg) scale(0.6); animation: iris-work 1.1s ease-in-out infinite; }
+  .aperture[data-state="success"] .blade-group{ transform: rotate(46deg) scale(0.5); }
+  .aperture[data-state="success"] .blade{ fill: var(--ok-dim); }
+  .aperture[data-state="success"] .aperture-core{ fill: var(--ok); }
+  .aperture[data-state="error"] .blade-group{ transform: rotate(6deg) scale(1.05); }
+  .aperture[data-state="error"] .blade{ fill: var(--safelight-dim); }
+  .aperture[data-state="error"] .aperture-core{ fill: var(--err); }
+
+  @keyframes iris-work{
+    0%,100%{ transform: rotate(20deg) scale(0.58); }
+    50%{ transform: rotate(36deg) scale(0.66); }
+  }
+
+  /* ===== stepper tabs ===== */
+  .steps-indicator{
+    display:flex;
+    gap:8px;
+    margin-bottom:24px;
+  }
+  .step-pill{
+    flex:1;
+    background:rgba(0,0,0,0.25);
+    border:1px solid var(--hair);
+    border-radius:var(--radius);
+    padding:8px 12px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition: all 0.3s ease;
+  }
+  .step-pill.active{
+    border-color:var(--safelight);
+    color:var(--text);
+    background:rgba(193,68,46,0.1);
+  }
+  .step-pill.completed{
+    border-color:var(--ok);
+    color:var(--ok);
+  }
+  .step-num{
+    width:18px; height:18px;
+    border-radius:50%;
+    background:var(--muted-2);
+    color:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:600;
+    font-size:10px;
+  }
+  .step-pill.active .step-num{ background:var(--safelight); color:#fff; }
+  .step-pill.completed .step-num{ background:var(--ok); color:#fff; }
+
+  /* ===== dropzone ===== */
+  .dropzone{
+    border:1px dashed var(--hair);
+    border-radius:var(--radius);
+    padding:24px 18px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color 0.25s ease, background 0.25s ease;
+    position:relative;
+    display:block;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--safelight);
+    background:rgba(193,68,46,0.05);
+  }
+  .dropzone input[type="file"]{
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+  }
+  .dz-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px;
+    color:var(--muted);
+    letter-spacing:0.02em;
+  }
+  .dz-label b{ color:var(--text); font-weight:500; }
+
+  .preview-frame{
+    display:none;
+    align-items:center;
+    gap:12px;
+    border:1px solid var(--hair);
+    border-radius:var(--radius);
+    padding:10px;
+    margin-top:14px;
+    background:rgba(0,0,0,0.15);
+  }
+  .preview-frame.show{ display:flex; }
+  .preview-frame img{
+    width:56px; height:56px; object-fit:cover;
+    border-radius:3px;
+    border:1px solid var(--hair);
+  }
+  .preview-meta{
+    flex:1;
+    min-width:0;
+  }
+  .preview-meta .fname{
+    font-size:13.5px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .preview-meta .fsize{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .clear-btn{
+    background:none; border:none;
+    color:var(--muted);
+    font-size:18px;
+    cursor:pointer;
+    line-height:1;
+    padding:4px 6px;
+  }
+  .clear-btn:hover{ color:var(--safelight); }
+
+  /* ===== fields ===== */
+  .field{
+    margin-top:18px;
+  }
+  .field label{
+    display:block;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .input-box, .textarea-box{
+    width:100%;
+    background:rgba(0,0,0,0.22);
+    border:1px solid var(--hair);
+    border-radius:var(--radius);
+    color:var(--text);
+    font-family:'Work Sans', sans-serif;
+    font-size:13.5px;
+    padding:10px 12px;
+    outline:none;
+    transition:border-color 0.2s ease;
+  }
+  .input-box:focus, .textarea-box:focus{
+    border-color:var(--safelight);
+  }
+  .textarea-box{
+    font-family:'Work Sans', sans-serif;
+    line-height:1.55;
+    resize:vertical;
+    min-height:140px;
+  }
+
+  /* ===== attached resume badge ===== */
+  .attachment-badge{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 14px;
+    background:rgba(127,174,111,0.08);
+    border:1px solid rgba(127,174,111,0.25);
+    border-radius:var(--radius);
+    margin-top:16px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color:var(--ok);
+  }
+  .attachment-badge svg{ fill:none; stroke:currentColor; stroke-width:2; width:16px; height:16px; }
+
+  /* ===== buttons ===== */
+  .action-btn{
+    width:100%;
+    margin-top:22px;
+    padding:14px;
+    border-radius:var(--radius);
+    border:1px solid var(--safelight);
+    background:var(--safelight);
+    color:#fbf1ea;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transition:background 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+  }
+  .action-btn:hover{ background:#a83a26; }
+  .action-btn:active{ transform:scale(0.99); }
+  .action-btn:disabled{
+    opacity:0.5;
+    cursor:not-allowed;
+  }
+  .action-btn.secondary{
+    background:transparent;
+    border-color:var(--hair);
+    color:var(--muted);
+    margin-top:10px;
+  }
+  .action-btn.secondary:hover{
+    border-color:var(--muted);
+    color:var(--text);
+  }
+
+  /* ===== status box ===== */
+  .status{
+    margin-top:22px;
+    border-radius:var(--radius);
+    border:1px solid var(--hair);
+    background:var(--rail);
+    padding:16px;
+    display:none;
+  }
+  .status.show{ display:block; animation: rise 0.35s ease; }
+  @keyframes rise{
+    from{ opacity:0; transform:translateY(6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .status-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .status-head .tag{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--muted);
+  }
+  .status.ok .status-head .tag{ background:var(--ok); box-shadow:0 0 6px 1px rgba(127,174,111,0.6); }
+  .status.ok .status-head{ color:var(--ok); }
+  .status.fail .status-head .tag{ background:var(--err); box-shadow:0 0 6px 1px rgba(209,86,63,0.6); }
+  .status.fail .status-head{ color:var(--err); }
+
+  .status-msg{
+    font-size:13.5px;
+    line-height:1.55;
+    color:var(--text);
+    word-break:break-word;
+  }
+
+  /* ===== draft review container ===== */
+  .draft-container{
+    display:none;
+    animation: fadeIn 0.4s ease;
+  }
+  .draft-container.show{ display:block; }
+  @keyframes fadeIn{
+    from{ opacity:0; transform:translateY(8px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .config-row{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px dashed var(--hair);
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  .config-row input{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+  }
+
+  .footnote{
+    text-align:center;
+    margin-top:22px;
+    font-size:11.5px;
+    color:var(--muted-2);
+    font-family:'JetBrains Mono', monospace;
+    letter-spacing:0.03em;
+  }
+
+  @media (max-width:480px){
+    .card{ padding:26px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="eyebrow"><span class="dot"></span> AI Mail Dispatcher / Gemini OCR</div>
+  <h1>Upload JD &amp; <em>Apply</em></h1>
+  <p class="sub">Upload a Job Description image. Gemini AI parses HR contact details and crafts a tailored email with your backend resume attached.</p>
+
+  <div class="filmstrip">
+    <div class="sprockets"></div>
+    <div class="card">
+
+      <div class="aperture-stage">
+        <div class="aperture" id="aperture" data-state="idle">
+          <svg viewBox="0 0 100 100">
+            <circle class="aperture-ring" cx="50" cy="50" r="47"></circle>
+            <g class="blade-group" id="bladeGroup">
+              <polygon class="blade" points="50,50 50,4 66,10"></polygon>
+              <polygon class="blade" points="50,50 90,17 96,34"></polygon>
+              <polygon class="blade" points="50,50 96,50 90,66"></polygon>
+              <polygon class="blade" points="50,50 83,83 66,90"></polygon>
+              <polygon class="blade" points="50,50 50,96 34,90"></polygon>
+              <polygon class="blade" points="50,50 10,83 4,66"></polygon>
+              <polygon class="blade" points="50,50 4,34 10,17"></polygon>
+              <polygon class="blade" points="50,50 17,10 34,4"></polygon>
+            </g>
+            <circle class="aperture-core" cx="50" cy="50" r="16"></circle>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="steps-indicator">
+        <div class="step-pill active" id="pillStep1">
+          <div class="step-num">1</div> Upload JD Image
+        </div>
+        <div class="step-pill" id="pillStep2">
+          <div class="step-num">2</div> AI Email Preview &amp; Send
+        </div>
+      </div>
+
+      <!-- STEP 1 FORM: Upload JD Image -->
+      <div id="step1Container">
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="image/*" required>
+          <div class="dz-label" id="dzLabel"><b>Drop Job Description (JD) poster / image</b> or click to browse</div>
+        </label>
+
+        <div class="preview-frame" id="previewFrame">
+          <img id="previewImg" src="" alt="JD Image Preview">
+          <div class="preview-meta">
+            <div class="fname" id="fname">—</div>
+            <div class="fsize" id="fsize">—</div>
+          </div>
+          <button type="button" class="clear-btn" id="clearBtn" aria-label="Remove image">&times;</button>
+        </div>
+
+        <button type="button" class="action-btn" id="generateBtn">
+          <span>✨ 1st Call: Generate Mail with Gemini AI</span>
+        </button>
+      </div>
+
+      <!-- STEP 2 CONTAINER: Display Extracted HR Email, Subject, Body & Send -->
+      <div class="draft-container" id="step2Container">
+
+        <div class="field">
+          <label for="hrEmailInput">Extracted HR Email Address</label>
+          <input type="email" id="hrEmailInput" class="input-box" placeholder="hr@company.com" required>
+        </div>
+
+        <div class="field">
+          <label for="subjectInput">Email Subject Line</label>
+          <input type="text" id="subjectInput" class="input-box" placeholder="Application for Role" required>
+        </div>
+
+        <div class="field">
+          <label for="bodyTextarea">Tailored Application Email Body</label>
+          <textarea id="bodyTextarea" class="textarea-box" rows="7" required></textarea>
+        </div>
+
+        <div class="attachment-badge">
+          <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          <span id="attachedResumeText">Attached: resume.txt (Backend Resume Loaded)</span>
+        </div>
+
+        <!-- Optional Gmail Credentials Override -->
+        <details class="smtp-settings" style="margin-top:16px; border:1px solid var(--hair); border-radius:var(--radius); padding:12px; background:rgba(0,0,0,0.2);">
+          <summary style="font-family:'JetBrains Mono'; font-size:11px; color:var(--amber); cursor:pointer; text-transform:uppercase; font-weight:500;">⚙️ Custom Gmail / App Password Settings (Optional)</summary>
+          <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+            <div>
+              <label style="font-family:'JetBrains Mono'; font-size:10px; color:var(--muted); text-transform:uppercase; display:block; margin-bottom:4px;">Sender Gmail Address</label>
+              <input type="email" id="senderEmailInput" class="input-box" style="padding:8px 10px; font-size:12px;" placeholder="abhishekanandmahto77@gmail.com">
+            </div>
+            <div>
+              <label style="font-family:'JetBrains Mono'; font-size:10px; color:var(--muted); text-transform:uppercase; display:block; margin-bottom:4px;">Google App Password (16 characters)</label>
+              <input type="password" id="appPasswordInput" class="input-box" style="padding:8px 10px; font-size:12px;" placeholder="Enter 16-character App Password">
+              <span style="font-size:10.5px; color:var(--muted-2); display:block; margin-top:4px;">Get your 16-character App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:var(--amber);">myaccount.google.com/apppasswords</a></span>
+            </div>
+          </div>
+        </details>
+
+        <button type="button" class="action-btn" id="sendBtn">
+          <span>🚀 2nd Call: Send Email &amp; Resume to HR</span>
+        </button>
+
+        <button type="button" class="action-btn secondary" id="resetBtn">
+          <span>← Upload Different JD Image</span>
+        </button>
+      </div>
+
+      <!-- Status Notification Box -->
+      <div class="status" id="status">
+        <div class="status-head"><span class="tag"></span><span id="statusTitle">Result</span></div>
+        <div class="status-msg" id="statusMsg"></div>
+      </div>
+
+      <!-- Backend Host Configuration -->
+      <div class="config-row">
+        <span style="font-size:10.5px; font-family:'JetBrains Mono'; color:var(--muted); text-transform:uppercase;">Backend API:</span>
+        <input type="text" id="apiHostInput" class="input-box" style="padding:6px 8px; font-size:11px;" value="https://localhost:7049">
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footnote">Powered by .NET 9 Web API &amp; Google Gemini AI</div>
+</div>
+
+<script>
+const aperture    = document.getElementById('aperture');
+const dropzone    = document.getElementById('dropzone');
+const dzLabel     = document.getElementById('dzLabel');
+const fileInput   = document.getElementById('fileInput');
+const previewFrame= document.getElementById('previewFrame');
+const previewImg  = document.getElementById('previewImg');
+const fname       = document.getElementById('fname');
+const fsize       = document.getElementById('fsize');
+const clearBtn    = document.getElementById('clearBtn');
+const generateBtn = document.getElementById('generateBtn');
+
+const pillStep1   = document.getElementById('pillStep1');
+const pillStep2   = document.getElementById('pillStep2');
+const step1Box    = document.getElementById('step1Container');
+const step2Box    = document.getElementById('step2Container');
+
+const hrEmailInput     = document.getElementById('hrEmailInput');
+const subjectInput     = document.getElementById('subjectInput');
+const bodyTextarea     = document.getElementById('bodyTextarea');
+const attachedResumeText = document.getElementById('attachedResumeText');
+const senderEmailInput = document.getElementById('senderEmailInput');
+const appPasswordInput = document.getElementById('appPasswordInput');
+
+const sendBtn     = document.getElementById('sendBtn');
+const resetBtn    = document.getElementById('resetBtn');
+
+const statusBox   = document.getElementById('status');
+const statusTitle = document.getElementById('statusTitle');
+const statusMsg   = document.getElementById('statusMsg');
+const apiHostInput= document.getElementById('apiHostInput');
+
+let selectedFile = null;
+
+function getApiBaseUrl(){
+  let host = apiHostInput.value.trim();
+  if(host.endsWith('/')) host = host.slice(0, -1);
+  return host;
+}
+
+function humanSize(bytes){
+  if(bytes < 1024) return bytes + " B";
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + " KB";
+  return (bytes/(1024*1024)).toFixed(1) + " MB";
+}
+
+function setAperture(state){
+  aperture.setAttribute('data-state', state);
+}
+
+function handleFile(file){
+  if(!file || !file.type.startsWith('image/')) return;
+  selectedFile = file;
+
+  const reader = new FileReader();
+  reader.onload = e => { previewImg.src = e.target.result; };
+  reader.readAsDataURL(file);
+
+  fname.textContent = file.name;
+  fsize.textContent = humanSize(file.size);
+  previewFrame.classList.add('show');
+  dzLabel.innerHTML = "<b>JD Image loaded</b> — choose another to replace it";
+  setAperture('ready');
+  hideStatus();
+}
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+['dragover','dragenter'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  });
+});
+['dragleave','drop'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+  });
+});
+dropzone.addEventListener('drop', e=>{
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if(file){
+    fileInput.files = e.dataTransfer.files;
+    handleFile(file);
+  }
+});
+
+clearBtn.addEventListener('click', () => {
+  selectedFile = null;
+  fileInput.value = "";
+  previewFrame.classList.remove('show');
+  dzLabel.innerHTML = "<b>Drop Job Description (JD) poster / image</b> or click to browse";
+  setAperture('idle');
+});
+
+function hideStatus(){
+  statusBox.classList.remove('show','ok','fail');
+}
+
+function showStatus(ok, title, message){
+  statusBox.classList.add('show');
+  statusBox.classList.toggle('ok', ok);
+  statusBox.classList.toggle('fail', !ok);
+  statusTitle.textContent = title;
+  statusMsg.textContent = message;
+}
+
+// ----------------------------------------------------------------------
+// 1st API Call: Upload JD Image -> Gemini OCR -> Generate Mail Draft
+// ----------------------------------------------------------------------
+generateBtn.addEventListener('click', async () => {
+  if(!selectedFile){
+    setAperture('error');
+    showStatus(false, "Upload Error", "Please select or drop a Job Description (JD) image first.");
+    setTimeout(() => setAperture('idle'), 1000);
+    return;
+  }
+
+  generateBtn.disabled = true;
+  generateBtn.innerHTML = "<span>⏳ Connecting Gemini AI API...</span>";
+  setAperture('busy');
+  hideStatus();
+
+  try {
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+
+    const baseUrl = getApiBaseUrl();
+    const endpoint = `${baseUrl}/api/Mail/generate`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: formData
+    });
+
+    const payload = await response.json();
+
+    if(response.ok && payload.success){
+      setAperture('success');
+
+      // Populate draft fields
+      hrEmailInput.value = payload.hrEmail || "hr@company.com";
+      subjectInput.value = payload.subject || "Application for Open Role";
+      bodyTextarea.value = payload.body || "";
+      if(payload.resumeFileName){
+        attachedResumeText.textContent = `Attached: ${payload.resumeFileName} (Loaded from Backend)`;
+      }
+
+      // Switch to Step 2
+      pillStep1.classList.remove('active');
+      pillStep1.classList.add('completed');
+      pillStep2.classList.add('active');
+
+      step1Box.style.display = 'none';
+      step2Box.classList.add('show');
+
+      showStatus(true, "Draft Ready", "Gemini AI extracted HR email & generated application draft successfully.");
+    } else {
+      setAperture('error');
+      showStatus(false, "Generation Failed", payload.message || `Server returned status ${response.status}`);
+    }
+  } catch(err) {
+    setAperture('error');
+    showStatus(false, "Connection Failed", `Could not connect to backend at ${getApiBaseUrl()}. Please verify 'dotnet run' is active.`);
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = "<span>✨ 1st Call: Generate Mail with Gemini AI</span>";
+  }
+});
+
+// ----------------------------------------------------------------------
+// 2nd API Call: Send Final Mail + Resume Attachment to HR
+// ----------------------------------------------------------------------
+sendBtn.addEventListener('click', async () => {
+  const hrEmail = hrEmailInput.value.trim();
+  const subject = subjectInput.value.trim();
+  const body    = bodyTextarea.value.trim();
+
+  if(!hrEmail || !subject || !body){
+    setAperture('error');
+    showStatus(false, "Validation Error", "Please ensure HR Email, Subject, and Body are filled before sending.");
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendBtn.innerHTML = "<span>✉️ Sending Email to HR...</span>";
+  setAperture('busy');
+  hideStatus();
+
+  try {
+    const baseUrl = getApiBaseUrl();
+    const endpoint = `${baseUrl}/api/Mail/send`;
+
+    const requestPayload = {
+      hrEmail: hrEmail,
+      subject: subject,
+      body: body,
+      senderEmail: senderEmailInput.value.trim() || null,
+      appPassword: appPasswordInput.value.trim() || null
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestPayload)
+    });
+
+    const payload = await response.json();
+
+    if(response.ok && payload.success){
+      setAperture('success');
+      showStatus(true, "Mail Sent Successfully!", payload.message || `Email sent to ${hrEmail} with resume attached.`);
+    } else {
+      setAperture('error');
+      showStatus(false, "Dispatch Failed", payload.message || `Server returned status ${response.status}`);
+    }
+  } catch(err) {
+    setAperture('error');
+    showStatus(false, "Connection Failed", `Could not connect to backend at ${getApiBaseUrl()}`);
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = "<span>🚀 2nd Call: Send Email &amp; Resume to HR</span>";
+  }
+});
+
+resetBtn.addEventListener('click', () => {
+  pillStep2.classList.remove('active');
+  pillStep1.classList.remove('completed');
+  pillStep1.classList.add('active');
+
+  step2Box.classList.remove('show');
+  step1Box.style.display = 'block';
+  hideStatus();
+  setAperture(selectedFile ? 'ready' : 'idle');
+});
+</script>
+
+</body>
+</html>
