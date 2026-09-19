@@ -38,3 +38,4 @@ C:\Users\HP\Downloads\PRO\Mail\Mail\bin\Debug\net9.0\BouncyCastle.Cryptography.d
 C:\Users\HP\Downloads\PRO\Mail\Mail\bin\Debug\net9.0\MailKit.dll
 C:\Users\HP\Downloads\PRO\Mail\Mail\bin\Debug\net9.0\MimeKit.dll
 C:\Users\HP\Downloads\PRO\Mail\Mail\obj\Debug\net9.0\staticwebassets.upToDateCheck.txt
+C:\Users\HP\Downloads\PRO\Mail\Mail\obj\Debug\net9.0\Mail.sourcelink.json

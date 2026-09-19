@@ -25,6 +25,7 @@ Instructions:
 3. Carefully analyze the JD requirements.
 4. Compare the JD requirements with the candidate's resume and career background.
 5. Identify the candidate's strongest matching:
+6. wherever location specific need like only this location candidate then tell explicitly i am ready to relocate
    MCA graduate from Banaras Hindu University specializing in Artificial Intelligence, Backend Development,
 and Machine Learning. Hands-on experience deploying Vision-Language Models (Qwen2.5-VL) using
 FastAPI for intelligent document extraction and multimodal inference. Proficient in Java, Python,
@@ -79,6 +80,6 @@ Return exactly this structure:
 
 {
   "hrEmail": "extracted_or_fallback_email@domain.com",
-  "subject": "Application for [Job Title] - [Candidate Name]",
-  "body": "Dear Hiring Manager,\n\n[Professional email body]\n\nBest regards,\n[Candidate Name]"
+  "subject": "Application for [Job Title]",
+  "body": "Dear Hiring Manager,\n\n[Professional email body]\n\nBest regards,\n Abhishek Anand Mahto"
 }
